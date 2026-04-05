@@ -43,22 +43,22 @@ export function WidgetDetail({
 
   return (
     <article>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-3xl font-semibold text-stone-900">{activeWidget.name}</h2>
+      <div className="mb-5 flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="break-words font-display text-2xl font-semibold text-stone-900 sm:text-3xl">{activeWidget.name}</h2>
           <div className="mt-2"><span className={tagClass[activeWidget.tag]}>{activeWidget.tag}</span></div>
         </div>
         <div className="relative flex-none">
           <button
             type="button"
             onClick={() => void onCopyCode()}
-            className="rounded-sm border border-stone-300 bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.1em] text-stone-700 hover:bg-amber-50"
+            className="rounded-sm border border-stone-300 bg-white px-3 py-2 text-[11px] font-medium uppercase tracking-[0.1em] text-stone-700 hover:bg-amber-50 sm:text-xs"
           >
             Copy code
           </button>
           {copyStatus !== 'idle' ? (
             <p
-              className={`pointer-events-none absolute right-0 top-full mt-1 whitespace-nowrap text-xs ${copyStatus === 'success' ? 'text-emerald-700' : 'text-rose-700'}`}
+              className={`pointer-events-none absolute right-0 top-full mt-1 max-w-[220px] text-right text-xs sm:whitespace-nowrap ${copyStatus === 'success' ? 'text-emerald-700' : 'text-rose-700'}`}
               role="status"
               aria-live="polite"
             >
@@ -68,7 +68,7 @@ export function WidgetDetail({
         </div>
       </div>
 
-      <p className="mb-6 max-w-4xl text-[15px] leading-7 text-stone-700">{activeWidget.desc}</p>
+      <p className="mb-6 max-w-4xl text-sm leading-7 text-stone-700 sm:text-[15px]">{activeWidget.desc}</p>
 
       <div>
         <p className="mb-2 text-xs uppercase tracking-[0.12em] text-stone-500">Code</p>

@@ -11,6 +11,7 @@ export function App() {
   const [activeTag, setActiveTag] = useState<FilterTag>('all');
   const [error, setError] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [mobilePanel, setMobilePanel] = useState<'browse' | 'detail'>('browse');
 
   useEffect(() => {
     let mounted = true;
@@ -53,6 +54,7 @@ export function App() {
   useEffect(() => {
     if (!visibleWidgets.length) {
       setActiveId(null);
+      setMobilePanel('browse');
       return;
     }
 
@@ -96,6 +98,11 @@ export function App() {
     [visibleWidgets, activeId]
   );
 
+  const handleSelectWidget = (id: string): void => {
+    setActiveId(id);
+    setMobilePanel('detail');
+  };
+
   const activeIndex = activeWidget
     ? visibleWidgets.findIndex(widget => widget.id === activeWidget.id)
     : -1;
@@ -128,11 +135,30 @@ export function App() {
   }, [copyStatus]);
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-4 py-4 sm:px-6 lg:px-8">
+    <div className="mx-auto flex min-h-screen w-full max-w-[1400px] overflow-x-hidden flex-col px-3 py-3 sm:px-6 sm:py-4 lg:px-8">
       <AppHeader widgetCount={widgets.length} hasError={Boolean(error)} />
 
-      <main className="grid flex-1 gap-4 lg:grid-cols-[330px_minmax(0,1fr)]">
+      <div className="mb-3 flex gap-2 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobilePanel('browse')}
+          className={`flex-1 rounded-sm border px-3 py-2 text-sm ${mobilePanel === 'browse' ? 'border-amber-300 bg-amber-50 text-stone-900' : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'}`}
+        >
+          Browse
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePanel('detail')}
+          disabled={!activeWidget}
+          className={`flex-1 rounded-sm border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${mobilePanel === 'detail' ? 'border-amber-300 bg-amber-50 text-stone-900' : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-50'}`}
+        >
+          Details
+        </button>
+      </div>
+
+      <main className="grid min-w-0 flex-1 gap-4 lg:grid-cols-[330px_minmax(0,1fr)]">
         <Sidebar
+          className={mobilePanel === 'browse' ? 'block' : 'hidden lg:block'}
           widgets={widgets}
           visibleWidgets={visibleWidgets}
           activeId={activeId}
@@ -140,10 +166,10 @@ export function App() {
           activeTag={activeTag}
           onSearchChange={setSearchTerm}
           onTagChange={setActiveTag}
-          onSelectWidget={setActiveId}
+          onSelectWidget={handleSelectWidget}
         />
 
-        <section className="rounded-sm border border-stone-300 bg-white p-5 sm:p-7 shadow-sm">
+        <section className={`${mobilePanel === 'detail' ? 'block' : 'hidden'} min-w-0 max-w-full overflow-x-hidden rounded-sm border border-stone-300 bg-white p-4 sm:p-6 lg:block lg:p-7 shadow-sm`}>
           <WidgetDetail
             activeWidget={activeWidget}
             error={error}
