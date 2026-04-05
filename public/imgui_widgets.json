@@ -1,0 +1,162 @@
+[
+  {
+    "id": "text",
+    "name": "Text",
+    "tag": "layout",
+    "desc": "Draws read-only text on screen. No interaction. Used for labels, debug values, pattern names, current step display — anything the user just reads.",
+    "code": "ImGui::Text(\"hello world\");\nImGui::Text(\"step: %d\", seq->current_step);   // printf formatting works\nImGui::TextDisabled(\"greyed out label\");         // muted color\nImGui::TextWrapped(\"long text that wraps\");      // auto wrap",
+    "note": "Never pass a raw std::string to Text() — use .c_str() or the %s specifier: ImGui::Text(\"%s\", name.c_str()).",
+    "alsoknow": [
+      "TextColored(ImVec4, \"..\") lets you pass a color inline without push/pop",
+      "LabelText(\"label\", \"value\") draws a label+value pair aligned to the current column"
+    ]
+  },
+  {
+    "id": "button",
+    "name": "Button",
+    "tag": "input",
+    "desc": "The most common widget. Returns true on the single frame you click it. Size is optional — omit for auto-size.",
+    "code": "if (ImGui::Button(\"play\")) { audioRunning = true; }\n\n// fixed size\nif (ImGui::Button(\"kick\", ImVec2(80, 40))) { }\n\n// unique ID trick — ## hides everything after from display\nif (ImGui::Button((\"m##\" + std::to_string(i)).c_str())) { }\n\n// -FLT_MIN width = fill available column width\nif (ImGui::Button(\"wide\", ImVec2(-FLT_MIN, 0))) { }",
+    "note": "The ## trick is critical. ImGui uses the full label as both display text AND internal ID. Two buttons with the same visible label must use ## to give unique IDs or behavior breaks.",
+    "alsoknow": [
+      "SmallButton() — same as Button but no frame padding, sits inline with text",
+      "InvisibleButton() — invisible hit area, useful for custom drawn controls"
+    ]
+  },
+  {
+    "id": "sameline",
+    "name": "SameLine",
+    "tag": "layout",
+    "desc": "Tells ImGui to place the next widget on the same line instead of a new line. The main tool for horizontal layouts.",
+    "code": "ImGui::Button(\"play\");\nImGui::SameLine();                     // default spacing\nImGui::Button(\"stop\");\n\nImGui::SameLine(0.f, 16.f);            // explicit 16px gap\nImGui::Button(\"save\");\n\nImGui::SameLine(200.f);                // absolute x from window left edge\nImGui::Button(\"always at x=200\");",
+    "note": "SameLine(offset, spacing) — first arg is absolute x position (0 = auto next to previous), second is pixel gap. You used SameLine(60,60) to align names — BeginTable is cleaner for that.",
+    "alsoknow": [
+      "Calling SameLine() after a full-width widget like SliderInt does nothing visible",
+      "For step buttons, vary spacing arg to create group gaps: (j%4==3) ? 8.f : 3.f"
+    ]
+  },
+  {
+    "id": "slider",
+    "name": "SliderInt / SliderFloat",
+    "tag": "input",
+    "desc": "Draggable slider bound directly to a variable via pointer. Writes to your data every frame the value changes. Returns true when changed.",
+    "code": "ImGui::SliderInt(\"BPM\", &seq->bpm, 0, 256);\nImGui::SliderFloat(\"Swing\", &seq->swing, 0.0f, 0.5f);\n\n// custom display format\nImGui::SliderFloat(\"Vol\", &vol, 0.f, 1.f, \"%.2f\");\n\n// DragFloat — no track, just click and drag left/right\nImGui::DragFloat(\"Pan\", &pan, 0.01f, -1.f, 1.f);\nImGui::DragInt(\"Steps\", &steps, 1, 1, 32);",
+    "note": "DragFloat/DragInt is often better for DAW controls — no fixed visual range, just drag. Third arg is drag speed (value change per pixel).",
+    "alsoknow": [
+      "CTRL+click on any slider opens a text input to type an exact value — built in for free",
+      "SliderInt with a hidden label: use ## and draw your own Text() before it"
+    ]
+  },
+  {
+    "id": "pushstylecolor",
+    "name": "PushStyleColor",
+    "tag": "style",
+    "desc": "Temporarily overrides a color for all widgets drawn between push and pop. Stack-based — everything between the calls gets that color.",
+    "code": "// single override\nImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1,0,0,1));\nImGui::Button(\"red button\");\nImGui::PopStyleColor();\n\n// push multiple, pop with count\nImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.2f,0.2f,0.2f,1));\nImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f,0.3f,0.3f,1));\nImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.4f,0.4f,0.4f,1));\nImGui::Button(\"fully styled\");\nImGui::PopStyleColor(3);",
+    "note": "Common targets: ImGuiCol_Button, ImGuiCol_ButtonHovered, ImGuiCol_ButtonActive, ImGuiCol_Text, ImGuiCol_ChildBg, ImGuiCol_Border. Full list in imgui.h around line 1500.",
+    "alsoknow": [
+      "Always match push count with pop count — mismatches corrupt the style stack until restart",
+      "ImVec4 is (R, G, B, A) with values 0.0 to 1.0, not 0-255"
+    ]
+  },
+  {
+    "id": "pushstylevar",
+    "name": "PushStyleVar",
+    "tag": "style",
+    "desc": "Temporarily overrides a sizing or shape value — rounding, padding, spacing. Same push/pop pattern as StyleColor but for geometry not color.",
+    "code": "// rounded buttons\nImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.f);\nImGui::Button(\"round\");\nImGui::PopStyleVar();\n\n// tighter step button grid\nImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));\nImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,  ImVec2(3, 3));\n// ... step buttons ...\nImGui::PopStyleVar(2);\n\n// useful vars:\n// ImGuiStyleVar_FrameRounding  — button/input corner radius (float)\n// ImGuiStyleVar_FramePadding   — padding inside buttons (ImVec2)\n// ImGuiStyleVar_ItemSpacing    — gap between widgets (ImVec2)\n// ImGuiStyleVar_WindowPadding  — padding inside windows (ImVec2)\n// ImGuiStyleVar_ChildRounding  — BeginChild corners (float)",
+    "note": "StyleVar takes either a float or ImVec2 depending on the variable. FrameRounding is float, ItemSpacing is ImVec2. Wrong type = compile error.",
+    "alsoknow": [
+      "Set FrameRounding globally once in your theme setup instead of pushing/popping everywhere",
+      "ItemSpacing affects both X and Y gap — set Y to 0 to pack rows tightly"
+    ]
+  },
+  {
+    "id": "beginchild",
+    "name": "BeginChild",
+    "tag": "container",
+    "desc": "Creates a scrollable sub-region inside a window with its own clipping. Content that overflows the height scrolls independently. Always call EndChild — no bool check needed.",
+    "code": "// fixed height scrollable track list\nImGui::BeginChild(\"tracks\", ImVec2(0, 300), true);\nfor (auto& p : seq->patterns) {\n    ImGui::Text(\"%s\", p.name.c_str());\n}\nImGui::EndChild();\n\n// 0,0 = fill all remaining window space\nImGui::BeginChild(\"tracks\", ImVec2(0, 0), false);\n\n// styled with color and rounding\nImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f,0.1f,0.2f,1));\nImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.f);\nImGui::BeginChild(\"styled\", ImVec2(0, 200), true);\nImGui::EndChild();\nImGui::PopStyleVar(); ImGui::PopStyleColor();",
+    "note": "Unlike Begin(), BeginChild() always needs EndChild() with no conditional. The bool arg is whether to draw a border, not a success check.",
+    "alsoknow": [
+      "Width 0 = fill available width. Height 0 = fill remaining window height",
+      "ImGuiCol_ChildBg sets the background fill color",
+      "Pass ImGuiWindowFlags as 4th arg: e.g. ImGuiWindowFlags_NoScrollbar"
+    ]
+  },
+  {
+    "id": "begintable",
+    "name": "BeginTable",
+    "tag": "container",
+    "desc": "Grid layout with proper column alignment. Eliminates SameLine offset math for track rows. Each column gets its own space and can be fixed width or stretchy.",
+    "code": "if (ImGui::BeginTable(\"tracks\", 3)) {\n    ImGui::TableSetupColumn(\"name\",  ImGuiTableColumnFlags_WidthFixed,   80.f);\n    ImGui::TableSetupColumn(\"ctrl\",  ImGuiTableColumnFlags_WidthFixed,   50.f);\n    ImGui::TableSetupColumn(\"steps\", ImGuiTableColumnFlags_WidthStretch);\n\n    for (int i = 0; i < seq->patterns.size(); i++) {\n        ImGui::TableNextRow();\n\n        ImGui::TableSetColumnIndex(0);\n        ImGui::Text(\"%s\", seq->patterns[i].name.c_str());\n\n        ImGui::TableSetColumnIndex(1);\n        ImGui::Button((\"m##\"+std::to_string(i)).c_str());\n\n        ImGui::TableSetColumnIndex(2);\n        // 16 step buttons here\n    }\n    ImGui::EndTable();\n}",
+    "note": "Unlike BeginChild, BeginTable returns bool — always wrap in if(). WidthFixed pins to pixels, WidthStretch fills remaining space.",
+    "alsoknow": [
+      "TableSetupColumn must be called before any TableNextRow",
+      "Useful flags: ImGuiTableFlags_BordersInnerV, ImGuiTableFlags_RowBg",
+      "You can call TableSetColumnIndex in any order — don't have to go 0,1,2 sequentially"
+    ]
+  },
+  {
+    "id": "popup",
+    "name": "BeginPopupContextItem",
+    "tag": "container",
+    "desc": "Right-click context menu that appears on the last drawn widget. You already use this for delete pattern. Add as many MenuItems as you want.",
+    "code": "ImGui::Text(\"%s\", seq->patterns[i].name.c_str());\nif (ImGui::BeginPopupContextItem((\"ctx_\"+std::to_string(i)).c_str())) {\n    if (ImGui::MenuItem(\"Delete\"))    { remove_pattern(seq, i); }\n    if (ImGui::MenuItem(\"Duplicate\")) { duplicate_pattern(seq, i); }\n    ImGui::Separator();\n    if (ImGui::MenuItem(\"Clear all\")) { clear_pattern(seq, i); }\n    ImGui::EndPopup();\n}\n\n// modal popup — blocks input until closed\nif (ImGui::Button(\"open modal\"))\n    ImGui::OpenPopup(\"my_modal\");\nif (ImGui::BeginPopupModal(\"my_modal\")) {\n    ImGui::Text(\"Are you sure?\");\n    if (ImGui::Button(\"Yes\")) ImGui::CloseCurrentPopup();\n    ImGui::EndPopup();\n}",
+    "note": "The ID string must be unique per item — same ## rule as buttons. BeginPopupContextItem hooks onto the widget drawn immediately before it.",
+    "alsoknow": [
+      "MenuItem returns true on click — use it like a button",
+      "BeginPopupModal blocks all other input while open — good for destructive confirmations",
+      "CloseCurrentPopup() closes whatever popup is currently open"
+    ]
+  },
+  {
+    "id": "inputtext",
+    "name": "InputText",
+    "tag": "input",
+    "desc": "A text input field. Works on a char buffer — not std::string directly. Use for renaming patterns, file paths, search boxes.",
+    "code": "// copy string into buffer, edit, copy back\nstatic char buf[128] = {};\nstrncpy(buf, seq->patterns[i].name.c_str(), sizeof(buf));\n\nif (ImGui::InputText(\"##name\", buf, sizeof(buf))) {\n    seq->patterns[i].name = std::string(buf);  // write back on change\n}\n\n// enter-to-confirm behavior\nImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;\nif (ImGui::InputText(\"##name\", buf, sizeof(buf), flags)) {\n    seq->patterns[i].name = buf;  // only fires on enter\n}",
+    "note": "Make the buffer static or it resets every frame. InputText works on char arrays, not std::string — copy in, check return, copy back out.",
+    "alsoknow": [
+      "InputTextFlags_EnterReturnsTrue is great for DAW — commit on enter, cancel on escape",
+      "InputInt / InputFloat are number-entry versions with up/down arrows"
+    ]
+  },
+  {
+    "id": "checkbox",
+    "name": "Checkbox",
+    "tag": "input",
+    "desc": "A toggleable bool. Returns true the frame it changes. Alternative to buttons for mute/solo states.",
+    "code": "ImGui::Checkbox(\"mute\", &seq->patterns[i].muted);\nImGui::Checkbox(\"solo\", &seq->patterns[i].solo);\n\n// hide label, draw your own\nImGui::Checkbox(\"##mute\", &seq->patterns[i].muted);\nImGui::SameLine();\nImGui::Text(\"M\");",
+    "note": "Label appears to the right by default. Use ## to hide it while keeping a unique ID.",
+    "alsoknow": [
+      "RadioButton() is the single-select version — good for pattern mode selection",
+      "Checkbox binds directly to bool — no need to check return value unless you want a side effect"
+    ]
+  },
+  {
+    "id": "spacing",
+    "name": "Separator / Spacing / Dummy",
+    "tag": "layout",
+    "desc": "Visual breathing room. Separator draws a line. Spacing adds a gap. Dummy reserves exact pixel space invisibly.",
+    "code": "ImGui::Separator();            // horizontal rule\n\nImGui::Spacing();              // one line of vertical gap\nImGui::Spacing();              // stack for more\n\n// Dummy — exact pixel space, draws nothing\nImGui::Dummy(ImVec2(0, 12.f)); // 12px vertical gap\nImGui::Dummy(ImVec2(8.f, 0));  // 8px horizontal spacer with SameLine",
+    "note": "Dummy() is the most precise — use it when you need exact pixel control over spacing between sections.",
+    "alsoknow": [
+      "SeparatorText(\"label\") draws a labeled section divider — good for grouping controls",
+      "Indent() / Unindent() push content right — useful for sub-menus or grouped settings"
+    ]
+  },
+  {
+    "id": "drawlist",
+    "name": "GetWindowDrawList",
+    "tag": "style",
+    "desc": "Direct drawing API — draw rectangles, circles, lines at exact pixel positions. Used for custom controls like a piano roll, waveform display, or VU meter.",
+    "code": "ImDrawList* dl = ImGui::GetWindowDrawList();\nImVec2 p = ImGui::GetCursorScreenPos();  // current draw position\n\n// filled rectangle\ndl->AddRectFilled(p, ImVec2(p.x+100, p.y+40), IM_COL32(255,100,0,255));\n\n// outlined rectangle with rounding\ndl->AddRect(p, ImVec2(p.x+100, p.y+40), IM_COL32(255,255,255,128), 4.f);\n\n// line\ndl->AddLine(ImVec2(p.x, p.y), ImVec2(p.x+200, p.y), IM_COL32(100,200,255,255), 2.f);\n\n// after drawing, advance cursor so next widget goes below\nImGui::Dummy(ImVec2(200, 40));",
+    "note": "GetCursorScreenPos() gives absolute screen coordinates. After custom drawing, call Dummy() with the same size to advance ImGui's layout cursor — otherwise the next widget overlaps.",
+    "alsoknow": [
+      "IM_COL32(r,g,b,a) uses 0-255 values unlike ImVec4 which is 0.0-1.0",
+      "GetBackgroundDrawList() draws behind all windows — useful for a global grid",
+      "This is how you'd build a piano roll — a big Dummy() region with custom note rectangles on top"
+    ]
+  }
+]
