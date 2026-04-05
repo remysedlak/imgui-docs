@@ -10,6 +10,7 @@ export function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTag, setActiveTag] = useState<FilterTag>('all');
   const [error, setError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     let mounted = true;
@@ -108,10 +109,23 @@ export function App() {
     if (!activeWidget) return;
     try {
       await navigator.clipboard.writeText(activeWidget.code);
+      setCopyStatus('success');
     } catch {
-      // Ignore clipboard errors silently.
+      setCopyStatus('error');
     }
   };
+
+  useEffect(() => {
+    if (copyStatus === 'idle') return;
+
+    const timer = window.setTimeout(() => {
+      setCopyStatus('idle');
+    }, 1800);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [copyStatus]);
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1400px] flex-col px-4 py-4 sm:px-6 lg:px-8">
@@ -129,7 +143,7 @@ export function App() {
           onSelectWidget={setActiveId}
         />
 
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-7">
+        <section className="rounded-sm border border-stone-300 bg-white p-5 sm:p-7 shadow-sm">
           <WidgetDetail
             activeWidget={activeWidget}
             error={error}
@@ -137,6 +151,7 @@ export function App() {
             nextId={nextId}
             onSelectWidget={setActiveId}
             onCopyCode={onCopyCode}
+            copyStatus={copyStatus}
           />
         </section>
       </main>

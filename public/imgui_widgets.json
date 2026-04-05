@@ -1,162 +1,351 @@
 [
   {
+    "id": "begin-end-window",
+    "name": "Begin / End",
+    "tag": "container",
+    "desc": "Top-level window scope. Begin() starts a window and returns visibility/collapse state for content submission optimization. End() must always be called for every Begin(), even when Begin returns false.",
+    "code": "if (ImGui::Begin(\"Transport\", nullptr, ImGuiWindowFlags_MenuBar)) {\n    ImGui::Text(\"Playhead: %d\", frame);\n}\nImGui::End();\n\n// Rule: End() is mandatory even if Begin() returns false.",
+    "note": "Core Dear ImGui rule from docs/FAQ + imgui.h comments: Begin/End are the exception to other BeginX/EndX APIs. Most other pairs require EndX only when BeginX returns true, but Begin/End always pair.",
+    "alsoknow": [
+      "Use SetNextWindowPos/Size/Collapsed/Focus before Begin for deterministic startup layout",
+      "Window flags worth knowing: NoResize, NoMove, NoScrollbar, AlwaysAutoResize, MenuBar"
+    ]
+  },
+  {
     "id": "text",
     "name": "Text",
     "tag": "layout",
-    "desc": "Draws read-only text on screen. No interaction. Used for labels, debug values, pattern names, current step display — anything the user just reads.",
-    "code": "ImGui::Text(\"hello world\");\nImGui::Text(\"step: %d\", seq->current_step);   // printf formatting works\nImGui::TextDisabled(\"greyed out label\");         // muted color\nImGui::TextWrapped(\"long text that wraps\");      // auto wrap",
-    "note": "Never pass a raw std::string to Text() — use .c_str() or the %s specifier: ImGui::Text(\"%s\", name.c_str()).",
+    "desc": "Read-only text output. Accepts printf-style formatting and supports wrapped, colored, disabled, and label/value variants.",
+    "code": "ImGui::Text(\"hello world\");\nImGui::Text(\"BPM: %d\", bpm);\nImGui::TextWrapped(\"Long paragraph that should wrap in current width.\");\nImGui::TextDisabled(\"Muted context text\");\nImGui::TextColored(ImVec4(0.9f,0.4f,0.4f,1.0f), \"Warning\");",
+    "note": "For std::string use c_str() or %s formatter: ImGui::Text(\"%s\", s.c_str()). TextUnformatted is more efficient for very long immutable blobs because it avoids formatting overhead.",
     "alsoknow": [
-      "TextColored(ImVec4, \"..\") lets you pass a color inline without push/pop",
-      "LabelText(\"label\", \"value\") draws a label+value pair aligned to the current column"
+      "LabelText draws value-like pairs aligned with input widgets",
+      "SeparatorText gives semantic section headers"
     ]
   },
   {
     "id": "button",
     "name": "Button",
     "tag": "input",
-    "desc": "The most common widget. Returns true on the single frame you click it. Size is optional — omit for auto-size.",
-    "code": "if (ImGui::Button(\"play\")) { audioRunning = true; }\n\n// fixed size\nif (ImGui::Button(\"kick\", ImVec2(80, 40))) { }\n\n// unique ID trick — ## hides everything after from display\nif (ImGui::Button((\"m##\" + std::to_string(i)).c_str())) { }\n\n// -FLT_MIN width = fill available column width\nif (ImGui::Button(\"wide\", ImVec2(-FLT_MIN, 0))) { }",
-    "note": "The ## trick is critical. ImGui uses the full label as both display text AND internal ID. Two buttons with the same visible label must use ## to give unique IDs or behavior breaks.",
+    "desc": "Clickable widget returning true on activation frame. Primary action trigger in immediate mode UIs.",
+    "code": "if (ImGui::Button(\"Play\")) { transport.playing = true; }\nif (ImGui::Button(\"Stop\", ImVec2(90, 32))) { transport.playing = false; }\n\n// Fill available width\nif (ImGui::Button(\"Render\", ImVec2(-FLT_MIN, 0))) { StartRender(); }\n\n// Unique ID with hidden suffix\nif (ImGui::Button((\"Mute##track_\" + std::to_string(i)).c_str())) { ToggleMute(i); }",
+    "note": "ID system is hash-based over label + ID stack. Duplicate labels in same scope must be disambiguated via PushID() or ##suffix; otherwise interaction conflicts occur.",
     "alsoknow": [
-      "SmallButton() — same as Button but no frame padding, sits inline with text",
-      "InvisibleButton() — invisible hit area, useful for custom drawn controls"
+      "SmallButton for inline controls",
+      "InvisibleButton for custom-drawn interactions"
     ]
   },
   {
-    "id": "sameline",
-    "name": "SameLine",
-    "tag": "layout",
-    "desc": "Tells ImGui to place the next widget on the same line instead of a new line. The main tool for horizontal layouts.",
-    "code": "ImGui::Button(\"play\");\nImGui::SameLine();                     // default spacing\nImGui::Button(\"stop\");\n\nImGui::SameLine(0.f, 16.f);            // explicit 16px gap\nImGui::Button(\"save\");\n\nImGui::SameLine(200.f);                // absolute x from window left edge\nImGui::Button(\"always at x=200\");",
-    "note": "SameLine(offset, spacing) — first arg is absolute x position (0 = auto next to previous), second is pixel gap. You used SameLine(60,60) to align names — BeginTable is cleaner for that.",
-    "alsoknow": [
-      "Calling SameLine() after a full-width widget like SliderInt does nothing visible",
-      "For step buttons, vary spacing arg to create group gaps: (j%4==3) ? 8.f : 3.f"
-    ]
-  },
-  {
-    "id": "slider",
-    "name": "SliderInt / SliderFloat",
+    "id": "checkbox-radiobutton",
+    "name": "Checkbox / RadioButton",
     "tag": "input",
-    "desc": "Draggable slider bound directly to a variable via pointer. Writes to your data every frame the value changes. Returns true when changed.",
-    "code": "ImGui::SliderInt(\"BPM\", &seq->bpm, 0, 256);\nImGui::SliderFloat(\"Swing\", &seq->swing, 0.0f, 0.5f);\n\n// custom display format\nImGui::SliderFloat(\"Vol\", &vol, 0.f, 1.f, \"%.2f\");\n\n// DragFloat — no track, just click and drag left/right\nImGui::DragFloat(\"Pan\", &pan, 0.01f, -1.f, 1.f);\nImGui::DragInt(\"Steps\", &steps, 1, 1, 32);",
-    "note": "DragFloat/DragInt is often better for DAW controls — no fixed visual range, just drag. Third arg is drag speed (value change per pixel).",
+    "desc": "Boolean and single-choice toggles. Checkbox binds to bool pointer. RadioButton supports explicit group semantics.",
+    "code": "ImGui::Checkbox(\"Mute\", &track.muted);\nImGui::Checkbox(\"Solo\", &track.solo);\n\nif (ImGui::RadioButton(\"Mono\", mode == 0)) mode = 0;\nif (ImGui::RadioButton(\"Stereo\", mode == 1)) mode = 1;\n\n// alt overload\nImGui::RadioButton(\"Linear\", &curveType, 0);",
+    "note": "Checkbox returns true only on state change frame. You can use that return to trigger side effects (rebuild graph, write history marker).",
     "alsoknow": [
-      "CTRL+click on any slider opens a text input to type an exact value — built in for free",
-      "SliderInt with a hidden label: use ## and draw your own Text() before it"
+      "Use BeginDisabled/EndDisabled to make controls non-interactive while preserving layout",
+      "Use SetItemTooltip for discoverability on compact icon-only toggles"
     ]
   },
   {
-    "id": "pushstylecolor",
-    "name": "PushStyleColor",
-    "tag": "style",
-    "desc": "Temporarily overrides a color for all widgets drawn between push and pop. Stack-based — everything between the calls gets that color.",
-    "code": "// single override\nImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1,0,0,1));\nImGui::Button(\"red button\");\nImGui::PopStyleColor();\n\n// push multiple, pop with count\nImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.2f,0.2f,0.2f,1));\nImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f,0.3f,0.3f,1));\nImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.4f,0.4f,0.4f,1));\nImGui::Button(\"fully styled\");\nImGui::PopStyleColor(3);",
-    "note": "Common targets: ImGuiCol_Button, ImGuiCol_ButtonHovered, ImGuiCol_ButtonActive, ImGuiCol_Text, ImGuiCol_ChildBg, ImGuiCol_Border. Full list in imgui.h around line 1500.",
+    "id": "slider-drag",
+    "name": "Slider / Drag",
+    "tag": "input",
+    "desc": "Numeric editing with pointer-bound values. Slider gives bounded track control; Drag allows velocity-based value changes and often feels better for pro tools.",
+    "code": "ImGui::SliderInt(\"BPM\", &bpm, 40, 240);\nImGui::SliderFloat(\"Swing\", &swing, 0.0f, 0.5f, \"%.3f\");\nImGui::DragFloat(\"Gain\", &gainDb, 0.1f, -24.0f, 24.0f, \"%.1f dB\");\nImGui::DragInt(\"Steps\", &steps, 1.0f, 1, 64);",
+    "note": "Ctrl+click opens direct text entry for slider/drag widgets. Useful flags: AlwaysClamp, Logarithmic, NoRoundToFormat, WrapAround (Drag only).",
     "alsoknow": [
-      "Always match push count with pop count — mismatches corrupt the style stack until restart",
-      "ImVec4 is (R, G, B, A) with values 0.0 to 1.0, not 0-255"
-    ]
-  },
-  {
-    "id": "pushstylevar",
-    "name": "PushStyleVar",
-    "tag": "style",
-    "desc": "Temporarily overrides a sizing or shape value — rounding, padding, spacing. Same push/pop pattern as StyleColor but for geometry not color.",
-    "code": "// rounded buttons\nImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.f);\nImGui::Button(\"round\");\nImGui::PopStyleVar();\n\n// tighter step button grid\nImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));\nImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,  ImVec2(3, 3));\n// ... step buttons ...\nImGui::PopStyleVar(2);\n\n// useful vars:\n// ImGuiStyleVar_FrameRounding  — button/input corner radius (float)\n// ImGuiStyleVar_FramePadding   — padding inside buttons (ImVec2)\n// ImGuiStyleVar_ItemSpacing    — gap between widgets (ImVec2)\n// ImGuiStyleVar_WindowPadding  — padding inside windows (ImVec2)\n// ImGuiStyleVar_ChildRounding  — BeginChild corners (float)",
-    "note": "StyleVar takes either a float or ImVec2 depending on the variable. FrameRounding is float, ItemSpacing is ImVec2. Wrong type = compile error.",
-    "alsoknow": [
-      "Set FrameRounding globally once in your theme setup instead of pushing/popping everywhere",
-      "ItemSpacing affects both X and Y gap — set Y to 0 to pack rows tightly"
-    ]
-  },
-  {
-    "id": "beginchild",
-    "name": "BeginChild",
-    "tag": "container",
-    "desc": "Creates a scrollable sub-region inside a window with its own clipping. Content that overflows the height scrolls independently. Always call EndChild — no bool check needed.",
-    "code": "// fixed height scrollable track list\nImGui::BeginChild(\"tracks\", ImVec2(0, 300), true);\nfor (auto& p : seq->patterns) {\n    ImGui::Text(\"%s\", p.name.c_str());\n}\nImGui::EndChild();\n\n// 0,0 = fill all remaining window space\nImGui::BeginChild(\"tracks\", ImVec2(0, 0), false);\n\n// styled with color and rounding\nImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f,0.1f,0.2f,1));\nImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.f);\nImGui::BeginChild(\"styled\", ImVec2(0, 200), true);\nImGui::EndChild();\nImGui::PopStyleVar(); ImGui::PopStyleColor();",
-    "note": "Unlike Begin(), BeginChild() always needs EndChild() with no conditional. The bool arg is whether to draw a border, not a success check.",
-    "alsoknow": [
-      "Width 0 = fill available width. Height 0 = fill remaining window height",
-      "ImGuiCol_ChildBg sets the background fill color",
-      "Pass ImGuiWindowFlags as 4th arg: e.g. ImGuiWindowFlags_NoScrollbar"
-    ]
-  },
-  {
-    "id": "begintable",
-    "name": "BeginTable",
-    "tag": "container",
-    "desc": "Grid layout with proper column alignment. Eliminates SameLine offset math for track rows. Each column gets its own space and can be fixed width or stretchy.",
-    "code": "if (ImGui::BeginTable(\"tracks\", 3)) {\n    ImGui::TableSetupColumn(\"name\",  ImGuiTableColumnFlags_WidthFixed,   80.f);\n    ImGui::TableSetupColumn(\"ctrl\",  ImGuiTableColumnFlags_WidthFixed,   50.f);\n    ImGui::TableSetupColumn(\"steps\", ImGuiTableColumnFlags_WidthStretch);\n\n    for (int i = 0; i < seq->patterns.size(); i++) {\n        ImGui::TableNextRow();\n\n        ImGui::TableSetColumnIndex(0);\n        ImGui::Text(\"%s\", seq->patterns[i].name.c_str());\n\n        ImGui::TableSetColumnIndex(1);\n        ImGui::Button((\"m##\"+std::to_string(i)).c_str());\n\n        ImGui::TableSetColumnIndex(2);\n        // 16 step buttons here\n    }\n    ImGui::EndTable();\n}",
-    "note": "Unlike BeginChild, BeginTable returns bool — always wrap in if(). WidthFixed pins to pixels, WidthStretch fills remaining space.",
-    "alsoknow": [
-      "TableSetupColumn must be called before any TableNextRow",
-      "Useful flags: ImGuiTableFlags_BordersInnerV, ImGuiTableFlags_RowBg",
-      "You can call TableSetColumnIndex in any order — don't have to go 0,1,2 sequentially"
-    ]
-  },
-  {
-    "id": "popup",
-    "name": "BeginPopupContextItem",
-    "tag": "container",
-    "desc": "Right-click context menu that appears on the last drawn widget. You already use this for delete pattern. Add as many MenuItems as you want.",
-    "code": "ImGui::Text(\"%s\", seq->patterns[i].name.c_str());\nif (ImGui::BeginPopupContextItem((\"ctx_\"+std::to_string(i)).c_str())) {\n    if (ImGui::MenuItem(\"Delete\"))    { remove_pattern(seq, i); }\n    if (ImGui::MenuItem(\"Duplicate\")) { duplicate_pattern(seq, i); }\n    ImGui::Separator();\n    if (ImGui::MenuItem(\"Clear all\")) { clear_pattern(seq, i); }\n    ImGui::EndPopup();\n}\n\n// modal popup — blocks input until closed\nif (ImGui::Button(\"open modal\"))\n    ImGui::OpenPopup(\"my_modal\");\nif (ImGui::BeginPopupModal(\"my_modal\")) {\n    ImGui::Text(\"Are you sure?\");\n    if (ImGui::Button(\"Yes\")) ImGui::CloseCurrentPopup();\n    ImGui::EndPopup();\n}",
-    "note": "The ID string must be unique per item — same ## rule as buttons. BeginPopupContextItem hooks onto the widget drawn immediately before it.",
-    "alsoknow": [
-      "MenuItem returns true on click — use it like a button",
-      "BeginPopupModal blocks all other input while open — good for destructive confirmations",
-      "CloseCurrentPopup() closes whatever popup is currently open"
+      "Use DragFloatRange2/DragIntRange2 for bounded ranges",
+      "For vector params use SliderFloat2/3/4 and DragScalarN"
     ]
   },
   {
     "id": "inputtext",
     "name": "InputText",
     "tag": "input",
-    "desc": "A text input field. Works on a char buffer — not std::string directly. Use for renaming patterns, file paths, search boxes.",
-    "code": "// copy string into buffer, edit, copy back\nstatic char buf[128] = {};\nstrncpy(buf, seq->patterns[i].name.c_str(), sizeof(buf));\n\nif (ImGui::InputText(\"##name\", buf, sizeof(buf))) {\n    seq->patterns[i].name = std::string(buf);  // write back on change\n}\n\n// enter-to-confirm behavior\nImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;\nif (ImGui::InputText(\"##name\", buf, sizeof(buf), flags)) {\n    seq->patterns[i].name = buf;  // only fires on enter\n}",
-    "note": "Make the buffer static or it resets every frame. InputText works on char arrays, not std::string — copy in, check return, copy back out.",
+    "desc": "Editable UTF-8 text entry. Works with mutable char buffers by default; wrappers exist for std::string in misc/cpp/imgui_stdlib.h.",
+    "code": "static char nameBuf[128] = \"Kick\";\nif (ImGui::InputText(\"Name\", nameBuf, IM_ARRAYSIZE(nameBuf))) {\n    track.name = nameBuf;\n}\n\nImGuiInputTextFlags flags = ImGuiInputTextFlags_EnterReturnsTrue;\nif (ImGui::InputText(\"##rename\", nameBuf, IM_ARRAYSIZE(nameBuf), flags)) {\n    CommitRename(nameBuf);\n}\n\nImGui::InputTextWithHint(\"Search\", \"type to filter...\", query, sizeof(query));",
+    "note": "For dynamic strings, use callback resize mode or imgui_stdlib wrapper. Useful callback flags: CallbackCompletion, CallbackHistory, CallbackCharFilter, CallbackResize.",
     "alsoknow": [
-      "InputTextFlags_EnterReturnsTrue is great for DAW — commit on enter, cancel on escape",
-      "InputInt / InputFloat are number-entry versions with up/down arrows"
+      "InputTextMultiline for editors/notes",
+      "InputFloat/InputInt family for typed numeric input"
     ]
   },
   {
-    "id": "checkbox",
-    "name": "Checkbox",
+    "id": "combo-listbox",
+    "name": "BeginCombo / ListBox",
     "tag": "input",
-    "desc": "A toggleable bool. Returns true the frame it changes. Alternative to buttons for mute/solo states.",
-    "code": "ImGui::Checkbox(\"mute\", &seq->patterns[i].muted);\nImGui::Checkbox(\"solo\", &seq->patterns[i].solo);\n\n// hide label, draw your own\nImGui::Checkbox(\"##mute\", &seq->patterns[i].muted);\nImGui::SameLine();\nImGui::Text(\"M\");",
-    "note": "Label appears to the right by default. Use ## to hide it while keeping a unique ID.",
+    "desc": "Selection widgets. BeginCombo gives full control over item generation and filtering. ListBox is useful for persistent visible lists in constrained spaces.",
+    "code": "const char* preview = presets[currentPreset].c_str();\nif (ImGui::BeginCombo(\"Preset\", preview)) {\n    for (int i = 0; i < presets.size(); ++i) {\n        bool selected = i == currentPreset;\n        if (ImGui::Selectable(presets[i].c_str(), selected)) currentPreset = i;\n        if (selected) ImGui::SetItemDefaultFocus();\n    }\n    ImGui::EndCombo();\n}\n\nif (ImGui::BeginListBox(\"Patterns\", ImVec2(0, 180))) {\n    for (int i = 0; i < names.size(); ++i) ImGui::Selectable(names[i].c_str(), i == selected);\n    ImGui::EndListBox();\n}",
+    "note": "BeginCombo/EndCombo pattern is more future-proof than old Combo helper overloads because you can inject filtering, grouping, icons, and custom row visuals.",
     "alsoknow": [
-      "RadioButton() is the single-select version — good for pattern mode selection",
-      "Checkbox binds directly to bool — no need to check return value unless you want a side effect"
+      "Use HeightSmall/HeightLarge combo flags to control popup size",
+      "ListBox is essentially framed child region + selectable rows"
     ]
   },
   {
-    "id": "spacing",
-    "name": "Separator / Spacing / Dummy",
+    "id": "tree-collapsing",
+    "name": "TreeNode / CollapsingHeader",
+    "tag": "container",
+    "desc": "Hierarchical disclosure controls. TreeNode manages nested scopes and requires TreePop when open; CollapsingHeader is flat and does not push ID/indent scope.",
+    "code": "if (ImGui::TreeNode(\"Oscillators\")) {\n    ImGui::Checkbox(\"Osc A\", &oscA);\n    ImGui::Checkbox(\"Osc B\", &oscB);\n    ImGui::TreePop();\n}\n\nif (ImGui::CollapsingHeader(\"Mod Matrix\", ImGuiTreeNodeFlags_DefaultOpen)) {\n    DrawModMatrix();\n}",
+    "note": "TreeNode flags that matter: DefaultOpen, OpenOnArrow, OpenOnDoubleClick, SpanAvailWidth, Framed. For dense inspector UIs, CollapsingHeader usually yields cleaner ergonomics.",
+    "alsoknow": [
+      "SetNextItemOpen controls next tree/header open state",
+      "TreeNode IDs follow same label/ID stack rules"
+    ]
+  },
+  {
+    "id": "sameline-spacing",
+    "name": "SameLine / Spacing / Dummy / Separator",
     "tag": "layout",
-    "desc": "Visual breathing room. Separator draws a line. Spacing adds a gap. Dummy reserves exact pixel space invisibly.",
-    "code": "ImGui::Separator();            // horizontal rule\n\nImGui::Spacing();              // one line of vertical gap\nImGui::Spacing();              // stack for more\n\n// Dummy — exact pixel space, draws nothing\nImGui::Dummy(ImVec2(0, 12.f)); // 12px vertical gap\nImGui::Dummy(ImVec2(8.f, 0));  // 8px horizontal spacer with SameLine",
-    "note": "Dummy() is the most precise — use it when you need exact pixel control over spacing between sections.",
+    "desc": "Core layout micro-primitives for horizontal grouping, vertical rhythm, and explicit pixel-reserved space.",
+    "code": "ImGui::Button(\"Play\");\nImGui::SameLine(0.0f, 6.0f);\nImGui::Button(\"Stop\");\n\nImGui::Separator();\nImGui::Spacing();\nImGui::Dummy(ImVec2(0, 10));\nImGui::SeparatorText(\"Routing\");",
+    "note": "SameLine(x, spacing): x is absolute local x when non-zero; spacing controls gap when x is zero. Dummy is the most deterministic spacing primitive for pixel-accurate UI." ,
     "alsoknow": [
-      "SeparatorText(\"label\") draws a labeled section divider — good for grouping controls",
-      "Indent() / Unindent() push content right — useful for sub-menus or grouped settings"
+      "Indent/Unindent for nested groups",
+      "AlignTextToFramePadding to align labels with framed widgets"
     ]
   },
   {
-    "id": "drawlist",
+    "id": "beginchild",
+    "name": "BeginChild",
+    "tag": "container",
+    "desc": "Nested scrolling/clipping region with independent content flow. Great for sidebars, logs, pattern lists, and inspectors inside a main window.",
+    "code": "ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);\nImGui::BeginChild(\"TrackList\", ImVec2(0, 220), ImGuiChildFlags_Borders);\nfor (const auto& t : tracks) ImGui::TextUnformatted(t.name.c_str());\nImGui::EndChild();\nImGui::PopStyleVar();",
+    "note": "Newer API uses ImGuiChildFlags for behavior/styling (Borders, AutoResizeX/Y, ResizeX/Y, FrameStyle, NavFlattened). EndChild is always required once BeginChild is called.",
+    "alsoknow": [
+      "Pass height 0 to fill remaining vertical space",
+      "Combine with NoScrollbar window flag if you want strict fixed viewport content"
+    ]
+  },
+  {
+    "id": "table-core",
+    "name": "BeginTable",
+    "tag": "container",
+    "desc": "Modern table API for robust alignment, resizing, sorting, reordering, clipping, and scrollable grids.",
+    "code": "if (ImGui::BeginTable(\"mix\", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable)) {\n    ImGui::TableSetupColumn(\"Track\", ImGuiTableColumnFlags_WidthFixed, 120);\n    ImGui::TableSetupColumn(\"Mute\", ImGuiTableColumnFlags_WidthFixed, 60);\n    ImGui::TableSetupColumn(\"Solo\", ImGuiTableColumnFlags_WidthFixed, 60);\n    ImGui::TableSetupColumn(\"Level\", ImGuiTableColumnFlags_WidthStretch);\n    ImGui::TableHeadersRow();\n\n    for (int i = 0; i < tracks.size(); ++i) {\n        ImGui::TableNextRow();\n        ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(tracks[i].name.c_str());\n        ImGui::TableSetColumnIndex(1); ImGui::Checkbox((\"##m\" + std::to_string(i)).c_str(), &tracks[i].mute);\n        ImGui::TableSetColumnIndex(2); ImGui::Checkbox((\"##s\" + std::to_string(i)).c_str(), &tracks[i].solo);\n        ImGui::TableSetColumnIndex(3); ImGui::SliderFloat((\"##g\" + std::to_string(i)).c_str(), &tracks[i].gain, -24.f, 12.f);\n    }\n    ImGui::EndTable();\n}",
+    "note": "Call EndTable only when BeginTable returns true. For large datasets combine table with ImGuiListClipper to avoid per-row submission cost when offscreen.",
+    "alsoknow": [
+      "TableSetupScrollFreeze freezes header rows/columns during scroll",
+      "Use TableSetBgColor for row/column/cell overlays",
+      "Sort specs via TableGetSortSpecs for user-driven multi-column sorting"
+    ]
+  },
+  {
+    "id": "table-sorting",
+    "name": "TableGetSortSpecs",
+    "tag": "container",
+    "desc": "Pulls user sorting preferences from sortable tables. You sort your own data model when SpecsDirty is true and then clear the dirty flag.",
+    "code": "if (ImGui::BeginTable(\"files\", 3, ImGuiTableFlags_Sortable | ImGuiTableFlags_RowBg)) {\n    ImGui::TableSetupColumn(\"Name\", ImGuiTableColumnFlags_DefaultSort);\n    ImGui::TableSetupColumn(\"Size\");\n    ImGui::TableSetupColumn(\"Date\");\n    ImGui::TableHeadersRow();\n\n    if (ImGuiTableSortSpecs* specs = ImGui::TableGetSortSpecs()) {\n        if (specs->SpecsDirty) {\n            ApplySort(specs->Specs, specs->SpecsCount);\n            specs->SpecsDirty = false;\n        }\n    }\n    DrawRows();\n    ImGui::EndTable();\n}",
+    "note": "Sorting is application-owned by design. ImGui emits intent; your code applies ordering on data and redraws.",
+    "alsoknow": [
+      "Enable SortMulti for shift-multi-sort",
+      "Enable SortTristate for unsorted state"
+    ]
+  },
+  {
+    "id": "popup",
+    "name": "Popup / Modal",
+    "tag": "container",
+    "desc": "Transient overlays for contextual actions and confirmations. BeginPopupContextItem is ideal for right-click menus; BeginPopupModal is for blocking confirmations.",
+    "code": "if (ImGui::Button(\"Delete Track\")) ImGui::OpenPopup(\"confirm_delete\");\nif (ImGui::BeginPopupModal(\"confirm_delete\")) {\n    ImGui::TextUnformatted(\"Delete selected track?\");\n    if (ImGui::Button(\"Delete\")) {\n        DeleteTrack();\n        ImGui::CloseCurrentPopup();\n    }\n    ImGui::SameLine();\n    if (ImGui::Button(\"Cancel\")) ImGui::CloseCurrentPopup();\n    ImGui::EndPopup();\n}\n\nif (ImGui::BeginPopupContextItem(\"track_menu\")) {\n    if (ImGui::MenuItem(\"Duplicate\")) DuplicateTrack();\n    if (ImGui::MenuItem(\"Rename\")) StartRename();\n    ImGui::EndPopup();\n}",
+    "note": "Popup IDs are scoped by ID stack, so OpenPopup and BeginPopup should typically execute in consistent scopes. For context menus, use unique IDs per row/item.",
+    "alsoknow": [
+      "MenuItem auto-closes popup unless disabled by item/popup flags",
+      "IsPopupOpen supports AnyPopup and AnyPopupLevel checks"
+    ]
+  },
+  {
+    "id": "menu-bar",
+    "name": "BeginMenuBar / BeginMenu / MenuItem",
+    "tag": "container",
+    "desc": "Hierarchical menu system for app commands. Can be attached to window menu bars or global main menu bar.",
+    "code": "if (ImGui::BeginMainMenuBar()) {\n    if (ImGui::BeginMenu(\"File\")) {\n        if (ImGui::MenuItem(\"Open\", \"Ctrl+O\")) OpenProject();\n        if (ImGui::MenuItem(\"Save\", \"Ctrl+S\")) SaveProject();\n        ImGui::Separator();\n        if (ImGui::MenuItem(\"Quit\")) RequestQuit();\n        ImGui::EndMenu();\n    }\n    ImGui::EndMainMenuBar();\n}",
+    "note": "MenuItem shortcut text is display-only by default; actual key handling is your responsibility (Shortcut API is recommended).",
+    "alsoknow": [
+      "Window-level menu bar requires ImGuiWindowFlags_MenuBar + BeginMenuBar",
+      "Use BeginDisabled inside menus for unavailable commands"
+    ]
+  },
+  {
+    "id": "tabs",
+    "name": "BeginTabBar / BeginTabItem",
+    "tag": "container",
+    "desc": "Tab interfaces for organizing panels and editors without separate windows.",
+    "code": "if (ImGui::BeginTabBar(\"MainTabs\", ImGuiTabBarFlags_Reorderable)) {\n    if (ImGui::BeginTabItem(\"Mixer\")) { DrawMixer(); ImGui::EndTabItem(); }\n    if (ImGui::BeginTabItem(\"Piano Roll\")) { DrawPianoRoll(); ImGui::EndTabItem(); }\n    if (ImGui::BeginTabItem(\"Automation\")) { DrawAutomation(); ImGui::EndTabItem(); }\n    ImGui::EndTabBar();\n}",
+    "note": "Tab item EndTabItem only when BeginTabItem returns true. Useful tab bar flags: Reorderable, AutoSelectNewTabs, NoCloseWithMiddleMouseButton.",
+    "alsoknow": [
+      "TabItemButton creates tab-like buttons that are not selectable tabs",
+      "SetTabItemClosed reduces flicker when external close events occur"
+    ]
+  },
+  {
+    "id": "selectable-multiselect",
+    "name": "Selectable / Multi-Select",
+    "tag": "input",
+    "desc": "Row/item selection primitive. New multi-select APIs support Ctrl/Shift idioms with app-owned selection storage.",
+    "code": "for (int i = 0; i < items.size(); ++i) {\n    bool selected = selectedSet.contains(items[i].id);\n    if (ImGui::Selectable(items[i].label.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns)) {\n        ToggleSelection(items[i].id);\n    }\n}\n\n// Multi-select (advanced)\nImGuiMultiSelectIO* io = ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_None, selectionSize, itemCount);\nApplySelectionRequests(io);\n// submit rows with SetNextItemSelectionUserData(...)\nio = ImGui::EndMultiSelect();\nApplySelectionRequests(io);",
+    "note": "For large virtualized lists, pair multi-select with clipper and stable user data IDs. Selection ownership remains in your model, not in ImGui internals.",
+    "alsoknow": [
+      "IsItemToggledSelection helps detect per-row changes before EndMultiSelect",
+      "Selectable flags: SpanAllColumns, AllowDoubleClick, Highlight"
+    ]
+  },
+  {
+    "id": "id-stack",
+    "name": "PushID / PopID / ##",
+    "tag": "layout",
+    "desc": "Identifier system fundamentals. IDs define interaction state ownership. In loops, collisions must be avoided with PushID or hidden label suffixes.",
+    "code": "for (int i = 0; i < tracks.size(); ++i) {\n    ImGui::PushID(i);\n    ImGui::Checkbox(\"Mute\", &tracks[i].mute);\n    ImGui::SameLine();\n    ImGui::Button(\"Edit\");\n    ImGui::PopID();\n}\n\n// equivalent style\nImGui::Checkbox((\"Mute##\" + std::to_string(i)).c_str(), &tracks[i].mute);",
+    "note": "Empty visible labels are legal but still need IDs (e.g., \"##gain\"). FAQ explicitly warns that Button(\"\") collides with parent scope ID and should be avoided.",
+    "alsoknow": [
+      "ShowIDStackToolWindow is invaluable when debugging ID collisions",
+      "GetID can be used for custom storage keys"
+    ]
+  },
+  {
+    "id": "style-color",
+    "name": "PushStyleColor",
+    "tag": "style",
+    "desc": "Scoped color overrides for widget rendering. Stack-based and deterministic.",
+    "code": "ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.22f, 0.28f, 1.0f));\nImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.31f, 0.40f, 1.0f));\nImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.33f, 0.36f, 0.45f, 1.0f));\nImGui::Button(\"Styled\");\nImGui::PopStyleColor(3);",
+    "note": "Always pop exactly what you push. A mismatch can poison style state for the rest of the frame/session and is a common source of hard-to-trace UI bugs.",
+    "alsoknow": [
+      "GetColorU32 returns style-aware packed color useful for drawlist",
+      "Use SetColorEditOptions once for color-widget behavior defaults"
+    ]
+  },
+  {
+    "id": "style-var",
+    "name": "PushStyleVar",
+    "tag": "style",
+    "desc": "Scoped overrides for spacing/rounding/padding and other style geometry parameters.",
+    "code": "ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 5.0f);\nImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));\nImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 6));\nDrawCompactControls();\nImGui::PopStyleVar(3);",
+    "note": "StyleVar enum value determines expected payload type (float or ImVec2). Passing wrong type fails at compile time.",
+    "alsoknow": [
+      "For global theme setup, mutate ImGui::GetStyle once at startup",
+      "ButtonTextAlign/SelectableTextAlign can improve dense control readability"
+    ]
+  },
+  {
+    "id": "draw-list",
     "name": "GetWindowDrawList",
     "tag": "style",
-    "desc": "Direct drawing API — draw rectangles, circles, lines at exact pixel positions. Used for custom controls like a piano roll, waveform display, or VU meter.",
-    "code": "ImDrawList* dl = ImGui::GetWindowDrawList();\nImVec2 p = ImGui::GetCursorScreenPos();  // current draw position\n\n// filled rectangle\ndl->AddRectFilled(p, ImVec2(p.x+100, p.y+40), IM_COL32(255,100,0,255));\n\n// outlined rectangle with rounding\ndl->AddRect(p, ImVec2(p.x+100, p.y+40), IM_COL32(255,255,255,128), 4.f);\n\n// line\ndl->AddLine(ImVec2(p.x, p.y), ImVec2(p.x+200, p.y), IM_COL32(100,200,255,255), 2.f);\n\n// after drawing, advance cursor so next widget goes below\nImGui::Dummy(ImVec2(200, 40));",
-    "note": "GetCursorScreenPos() gives absolute screen coordinates. After custom drawing, call Dummy() with the same size to advance ImGui's layout cursor — otherwise the next widget overlaps.",
+    "desc": "Low-level immediate drawing (lines, rects, circles, text, images) in current window draw channel.",
+    "code": "ImDrawList* dl = ImGui::GetWindowDrawList();\nImVec2 p = ImGui::GetCursorScreenPos();\nImVec2 sz(320, 96);\n\ndl->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), IM_COL32(35, 38, 45, 255), 6.0f);\ndl->AddLine(ImVec2(p.x, p.y + 48), ImVec2(p.x + sz.x, p.y + 48), IM_COL32(120, 150, 210, 180), 1.5f);\ndl->AddText(ImVec2(p.x + 10, p.y + 10), IM_COL32_WHITE, \"Envelope\");\n\nImGui::Dummy(sz);",
+    "note": "Draw list uses absolute screen coordinates. After custom draw, submit a Dummy of same size to advance layout cursor and prevent overlap with subsequent widgets.",
     "alsoknow": [
-      "IM_COL32(r,g,b,a) uses 0-255 values unlike ImVec4 which is 0.0-1.0",
-      "GetBackgroundDrawList() draws behind all windows — useful for a global grid",
-      "This is how you'd build a piano roll — a big Dummy() region with custom note rectangles on top"
+      "Use PushClipRect/PopClipRect for custom clipped rendering",
+      "Foreground/background draw lists are available for global overlays"
+    ]
+  },
+  {
+    "id": "drag-drop",
+    "name": "BeginDragDropSource / BeginDragDropTarget",
+    "tag": "input",
+    "desc": "Payload-based drag and drop. Source publishes typed data; target accepts matching payload type and consumes it on delivery.",
+    "code": "if (ImGui::BeginDragDropSource()) {\n    int src = rowIndex;\n    ImGui::SetDragDropPayload(\"TRACK_INDEX\", &src, sizeof(src));\n    ImGui::Text(\"Move %s\", tracks[rowIndex].name.c_str());\n    ImGui::EndDragDropSource();\n}\n\nif (ImGui::BeginDragDropTarget()) {\n    if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(\"TRACK_INDEX\")) {\n        int src = *(const int*)p->Data;\n        ReorderTrack(src, rowIndex);\n    }\n    ImGui::EndDragDropTarget();\n}",
+    "note": "Payload type is a short user-defined string (max 32 chars). Keep it stable and namespaced to avoid accidental cross-feature collisions.",
+    "alsoknow": [
+      "AcceptBeforeDelivery lets you preview target handling while hovering",
+      "NoDrawDefaultRect disables built-in highlight if you draw your own"
+    ]
+  },
+  {
+    "id": "list-clipper",
+    "name": "ImGuiListClipper",
+    "tag": "layout",
+    "desc": "Large-list coarse clipping helper. Submits only visible rows while preserving scroll metrics and keyboard navigation behavior.",
+    "code": "ImGuiListClipper clipper;\nclipper.Begin((int)rows.size());\nwhile (clipper.Step()) {\n    for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {\n        DrawRow(i);\n    }\n}\n\n// if item count unknown: Begin(INT_MAX) + SeekCursorForItem(count)",
+    "note": "Use when row count is large (thousands+). It reduces CPU spent on widget submission for offscreen items, which is often the dominant cost in heavy inspector/list UIs.",
+    "alsoknow": [
+      "Works well with tables and multi-select APIs",
+      "IncludeItemsByIndex can force critical rows to stay submitted"
+    ]
+  },
+  {
+    "id": "io-input-capture",
+    "name": "ImGuiIO Capture Flags",
+    "tag": "input",
+    "desc": "Integration contract between app event routing and ImGui. io.WantCaptureMouse / WantCaptureKeyboard tell your host app when to consume or pass through input.",
+    "code": "ImGuiIO& io = ImGui::GetIO();\n\n// in your app input dispatch:\nif (!io.WantCaptureMouse) {\n    HandleViewportCameraMouse();\n}\nif (!io.WantCaptureKeyboard) {\n    HandleTransportHotkeys();\n}\n\n// backends feed events each frame via AddKeyEvent/AddMousePosEvent/etc.",
+    "note": "Official guidance: check capture flags before NewFrame for correct behavior. Do not infer capture using IsWindowHovered/IsItemHovered for global input routing decisions.",
+    "alsoknow": [
+      "WantTextInput is useful for spawning virtual keyboard on mobile/console",
+      "ConfigInputTrickleEventQueue helps low-FPS interaction quality"
+    ]
+  },
+  {
+    "id": "tooltip",
+    "name": "Tooltip APIs",
+    "tag": "layout",
+    "desc": "Contextual hover help. Can be lightweight text or full custom widget trees in a tooltip window.",
+    "code": "if (ImGui::IsItemHovered()) {\n    ImGui::SetTooltip(\"Peak meter in dBFS\");\n}\n\nif (ImGui::BeginItemTooltip()) {\n    ImGui::TextUnformatted(\"Detailed explanation\");\n    ImGui::Separator();\n    ImGui::Text(\"Range: %.1f .. %.1f\", minV, maxV);\n    ImGui::EndTooltip();\n}",
+    "note": "Tooltip hover behavior is tunable via style hover delay/stationary flags. Use BeginItemTooltip for richer content and consistent default hover semantics.",
+    "alsoknow": [
+      "SetItemTooltip is concise for common one-liners",
+      "Tooltips are excluded from disabled state by default"
+    ]
+  },
+  {
+    "id": "shortcuts",
+    "name": "Shortcut / Key APIs",
+    "tag": "input",
+    "desc": "Keyboard shortcut routing and conflict resolution. Preferred modern API over direct IsKeyPressed checks for command accelerators.",
+    "code": "if (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_S)) SaveProject();\nif (ImGui::Shortcut(ImGuiMod_Ctrl | ImGuiKey_O)) OpenProject();\n\n// legacy style still possible\nif (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::GetIO().KeyCtrl) SaveProject();",
+    "note": "Shortcut API participates in route ownership and focused-scope resolution, reducing accidental conflicts in large apps with nested tools and plugins.",
+    "alsoknow": [
+      "SetNextItemShortcut annotates upcoming item with displayed shortcut",
+      "Use RouteGlobal/RouteFocused flags for explicit shortcut ownership policy"
+    ]
+  },
+  {
+    "id": "debug-tools",
+    "name": "Debug / Metrics Tools",
+    "tag": "container",
+    "desc": "Built-in diagnostics windows for UI tree, draw calls, ID stack, and runtime logs. Essential when debugging interaction issues.",
+    "code": "ImGui::ShowDemoWindow();\nImGui::ShowMetricsWindow();\nImGui::ShowDebugLogWindow();\nImGui::ShowIDStackToolWindow();",
+    "note": "ID conflicts, clipping issues, and unexpected focus/capture behavior are significantly easier to resolve with these tools enabled during development builds.",
+    "alsoknow": [
+      "DebugStartItemPicker lets you click an item and inspect internals",
+      "ConfigDebugHighlightIdConflicts can surface duplicate-ID bugs early"
+    ]
+  },
+  {
+    "id": "fonts",
+    "name": "Font Atlas Basics",
+    "tag": "style",
+    "desc": "Load and manage fonts through ImFontAtlas; switch fonts with PushFont/PopFont. Dear ImGui now supports dynamic sizing with baked font data per size.",
+    "code": "ImGuiIO& io = ImGui::GetIO();\nio.Fonts->AddFontFromFileTTF(\"assets/Inter-Regular.ttf\", 16.0f);\nio.Fonts->AddFontFromFileTTF(\"assets/JetBrainsMono-Regular.ttf\", 15.0f);\n\n// use font\nImGui::PushFont(io.Fonts->Fonts[1], 15.0f);\nImGui::TextUnformatted(\"Monospace section\");\nImGui::PopFont();",
+    "note": "If your backend supports RendererHasTextures (1.92+ path), atlas texture updates are managed through ImTextureData request flow. For legacy backends, SetTexID path still exists.",
+    "alsoknow": [
+      "Use imgui_stdlib and FONTS.md guidance for Unicode-heavy apps",
+      "Glyph ranges and memory ownership rules are frequent sources of mistakes"
+    ]
+  },
+  {
+    "id": "begin-disabled",
+    "name": "BeginDisabled / EndDisabled",
+    "tag": "layout",
+    "desc": "Temporarily disables interaction and dims visuals for enclosed controls while preserving layout and state display.",
+    "code": "ImGui::BeginDisabled(!canRender);\nif (ImGui::Button(\"Render\")) StartRender();\nImGui::SliderInt(\"Threads\", &threads, 1, 32);\nImGui::EndDisabled();",
+    "note": "Great for command gating and mode-dependent controls. Disabled items can still be hovered with AllowWhenDisabled flags when needed for explanatory tooltips.",
+    "alsoknow": [
+      "Can be nested; any active disable in stack keeps item disabled",
+      "Prefer over manually guarding every widget for cleaner code"
+    ]
+  },
+  {
+    "id": "separator-spacing",
+    "name": "SeparatorText / Group",
+    "tag": "layout",
+    "desc": "Section organization and grouping primitives for readability in dense panels.",
+    "code": "ImGui::SeparatorText(\"Oscillator\");\nImGui::BeginGroup();\nImGui::SliderFloat(\"Tune\", &tune, -24.f, 24.f);\nImGui::SliderFloat(\"Fine\", &fine, -1.f, 1.f);\nImGui::EndGroup();",
+    "note": "BeginGroup/EndGroup lets a collection behave like one logical item for hover/layout interactions, useful for custom context menus and drag zones.",
+    "alsoknow": [
+      "GetItemRectMin/Max after EndGroup gives group bounding box",
+      "Pair with DrawList to render custom backgrounds around grouped controls"
     ]
   }
 ]
